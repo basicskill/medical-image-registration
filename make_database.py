@@ -2,6 +2,7 @@ import os
 from os.path import join, exists
 import numpy as np
 from rt_utils import RTStructBuilder
+from shutil import rmtree
 
 def create_ct_pet_database(src: str, dest: str):
     
@@ -27,23 +28,22 @@ def create_ct_pet_database(src: str, dest: str):
         # Take dir with more files
         dir1, dir2 = os.listdir(patient_dir)
 
-        if len(os.listdir(join(patient_dir, dir1))) > len(os.listdir(join(patient_dir, dir1))):
+        if len(os.listdir(join(patient_dir, dir1))) > len(os.listdir(join(patient_dir, dir2))):
             petct_dir = dir1
         else:
             petct_dir = dir2
-    
         petct_dir = join(patient_dir, petct_dir)
 
         # Find RT struct for PET scan
         for name in os.listdir(petct_dir):
-            if "RTstructPET" in name.split("-"):
+            if name.lower().find("rtstructpet") != -1:
                 pet_rt_path = join(petct_dir, name)
                 pet_rt_path = join(pet_rt_path, os.listdir(pet_rt_path)[0])
                 break
 
         # Find RT struct for CT scan
         for name in os.listdir(petct_dir):
-            if "RTstructCT" in name.split("-"):
+            if name.lower().find("rtstructct") != -1:
                 ct_rt_path = join(petct_dir, name)
                 ct_rt_path = join(ct_rt_path, os.listdir(ct_rt_path)[0])
                 break
@@ -56,11 +56,16 @@ def create_ct_pet_database(src: str, dest: str):
         num_of_files[np.argmax(num_of_files)] = 0
         pet_dir = dir_names[np.argmax(num_of_files)]
 
-        if "StandardFull" in pet_dir.split("-") or pet_dir.find("CT") == -1:
+        if pet_dir.find("StandardFull") != -1 or pet_dir.find("-CT") != -1:
             ct_dir, pet_dir = pet_dir, ct_dir
 
         ct_dir = join(petct_dir, ct_dir)
         pet_dir = join(petct_dir, pet_dir)
+
+        if len(os.listdir(ct_dir)) != len(os.listdir(pet_dir)):
+            print(f"\tFolder {folder} doesn't have the same number of CT and PET images!")
+            rmtree(join(dest, folder))
+            continue
 
         # Create dest dirs
         ct_dest = join(dest, folder, "ct")
@@ -68,8 +73,6 @@ def create_ct_pet_database(src: str, dest: str):
         os.makedirs(ct_dest)
         os.makedirs(pet_dest)
 
-        print(f"\t{ct_dir}")
-        print(f"\t{pet_dir}")
         # Load RT structs
         ct_scan = RTStructBuilder.create_from(
             dicom_series_path=ct_dir,
@@ -90,14 +93,14 @@ def create_ct_pet_database(src: str, dest: str):
         threshold = .1 * max_pixels
 
         # Save scans with 10% of maximal number of cancer pixels
-        for idx in range(ct_scan.shape[-1]):
-            if np.sum(ct_scan[:, :, idx]) > threshold:
+        for idx in range(ct_mask.shape[-1]):
+            if np.sum(ct_mask[:, :, idx]) > threshold:
                 
                 with open(join(ct_dest, f"{idx:03}.npy"), "wb") as f:
-                    np.save(f, ct_imgs[idx].pixel_data)
+                    np.save(f, ct_imgs[idx].pixel_array)
 
                 with open(join(pet_dest, f"{idx:03}.npy"), "wb") as f:
-                    np.save(f, pet_imgs[idx].pixel_data)
+                    np.save(f, pet_imgs[idx].pixel_array)
 
 
     print("Finished!")
