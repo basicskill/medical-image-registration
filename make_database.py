@@ -97,10 +97,10 @@ def create_ct_pet_database(src: str, dest: str):
             if np.sum(ct_mask[:, :, idx]) > threshold:
                 
                 with open(join(ct_dest, f"{idx:03}.npy"), "wb") as f:
-                    np.save(f, ct_imgs[idx].pixel_array)
+                    np.save(f, ct_imgs[idx].pixel_array.astype(np.float64))
 
                 with open(join(pet_dest, f"{idx:03}.npy"), "wb") as f:
-                    np.save(f, pet_imgs[idx].pixel_array)
+                    np.save(f, pet_imgs[idx].pixel_array.astype(np.float64))
 
 
     print("Finished!")

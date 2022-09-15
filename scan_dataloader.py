@@ -1,4 +1,5 @@
 import os
+import torch
 from torch.utils.data import Dataset
 import numpy as np
 
@@ -29,7 +30,7 @@ class CTPET_Dataset(Dataset):
 
     def __getitem__(self, index) -> dict:
         ct_img = torch.from_numpy(np.load(self.ct_paths[index]))
-        pet_img = torch.from_numpy(np.load(self.pet_paths[index])  
+        pet_img = torch.from_numpy(np.load(self.pet_paths[index]))
 
         return {
             "CT": ct_img,
