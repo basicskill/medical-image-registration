@@ -1,0 +1,8 @@
+Soft-tissue-Sarcoma/
+extracted_data/
+dest_tryout/
+database_tryout/
+testing-env2/
+.ipynb_checkpoints/
+__pycache__/
+articles/

@@ -30,11 +30,15 @@ class CTPET_Dataset(Dataset):
 
     def __getitem__(self, index) -> dict:
         ct_img = torch.from_numpy(np.load(self.ct_paths[index]))
+
+        # TODO: Add zoom
         pet_img = torch.from_numpy(np.load(self.pet_paths[index]))
+        stacked = torch.stack([ct_img[:128, :128], pet_img]).to(torch.float32)
 
         return {
             "CT": ct_img,
             "PET": pet_img,
+            "stacked": stacked
         }
 
     def __len__(self):
