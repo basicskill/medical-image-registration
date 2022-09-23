@@ -32,8 +32,8 @@ if __name__ == "__main__":
     model = AE_Registrator(encoder_size, decoder_size)
     model.train()
     lr = 1e-3
-    opt = Adam(model.parameters(), lr=lr)
-    num_of_epochs = 10
+    opt = Adam(model.parameters(), lr=lr, weight_decay=2e-5)
+    num_of_epochs = 25
     digits = floor(np.log10(num_of_epochs)) + 1
 
     criterion = nn.MSELoss()
@@ -58,9 +58,10 @@ if __name__ == "__main__":
             # ct_loss = torch.sqrt(torch.mean(torch.square(batch["PET"] - registred_batch)))
             # ct_loss = weighted_mean(batch["CT"], registred_batch)
 
-            ct_loss = indexed_rmse(batch["CT"], registred_batch, criterion)
+            ct_loss = indexed_rmse(batch["CT"], registred_batch, criterion, 100)
+            pet_loss = indexed_rmse(batch["PET"], registred_batch, criterion, 100)
 
-            loss = ct_loss# + pet_loss
+            loss = ct_loss + pet_loss
             loss.backward()
             opt.step()
             epoch_loss += loss.item()
