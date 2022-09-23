@@ -2,6 +2,8 @@ import os
 import torch
 from torch.utils.data import Dataset
 import numpy as np
+from scipy.ndimage import zoom
+
 
 class CTPET_Dataset(Dataset):
     """Class for holding data of PET and CT scans of body parts.
@@ -28,12 +30,26 @@ class CTPET_Dataset(Dataset):
 
         self.len = len(self.ct_paths)
 
-    def __getitem__(self, index) -> dict:
-        ct_img = torch.from_numpy(np.load(self.ct_paths[index]))
 
-        # TODO: Add zoom
-        pet_img = torch.from_numpy(np.load(self.pet_paths[index]))
-        stacked = torch.stack([ct_img[:128, :128], pet_img]).to(torch.float32)
+    def __getitem__(self, index) -> dict:
+        # Load and normalize CT image
+        ct_img = torch.from_numpy(np.load(self.ct_paths[index])).to(torch.float32)
+        # ct_img[ct_img < 0] = 0
+        ct_img -= torch.min(ct_img)
+        ct_img /= torch.max(ct_img)
+        
+        # Load and normalize PET image
+        pet_img = zoom(np.load(self.pet_paths[index]), 4, order=0)
+        pet_img = torch.from_numpy(pet_img).to(torch.float32)
+        # pet_img[pet_img < 0] = 0
+        pet_img -= torch.min(pet_img)
+        pet_img /= torch.max(pet_img)
+
+        ct_img *= 512
+        pet_img *= 512
+        
+        # Stack images for input of autoencoder
+        stacked = torch.stack([ct_img, pet_img])
 
         return {
             "CT": ct_img,

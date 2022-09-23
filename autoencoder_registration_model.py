@@ -14,7 +14,8 @@ class AE_Registrator(nn.Module):
         assert len(encoder_channels) > 1
 
         encoder_layer_list = [
-            nn.Conv2d(2, encoder_channels[0], kernel_size=3, padding=1)
+            nn.Conv2d(2, encoder_channels[0], kernel_size=3, padding=1),
+            nn.ReLU(),
         ]
 
         # Init all encoder layers
@@ -30,6 +31,9 @@ class AE_Registrator(nn.Module):
                 nn.Conv2d(encoder_channels[idx - 1], encoder_channels[idx],
                     kernel_size=3, padding=1)
             )
+
+            # Add ReLU activation
+            encoder_layer_list.append(nn.ReLU())
         
         # Create torch encoder object
         self.encoder = nn.ModuleList(encoder_layer_list)
@@ -38,7 +42,8 @@ class AE_Registrator(nn.Module):
         decoder_layer_list = [
             nn.ConvTranspose2d(encoder_channels[-1], decoder_channels[0],
                 kernel_size=2, stride=2),
-            nn.Conv2d(decoder_channels[0], decoder_channels[1], kernel_size=3, padding=1)
+            nn.Conv2d(decoder_channels[0], decoder_channels[1], kernel_size=3, padding=1),
+            nn.ReLU()
         ]
 
         # Init decoder layers
@@ -55,6 +60,9 @@ class AE_Registrator(nn.Module):
                 nn.Conv2d(decoder_channels[idx - 1], decoder_channels[idx],
                     kernel_size=3, padding=1)
             )
+
+            # Add ReLU activation
+            decoder_layer_list.append(nn.ReLU())
         
         self.decoder = nn.ModuleList(decoder_layer_list)
 
@@ -63,11 +71,9 @@ class AE_Registrator(nn.Module):
         # Encode batch
         for layer in self.encoder:
             X = layer(X)
-            # print(f"{layer} -> {X.shape}")
         
         # Decode batch
         for layer in self.decoder:
             X = layer(X)
-            # print(f"{layer} -> {X.shape}")
 
         return X

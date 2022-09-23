@@ -6,3 +6,7 @@ testing-env2/
 .ipynb_checkpoints/
 __pycache__/
 articles/
+tmp*
+*.tcia
+*.xlsx
+testing.ipynb
