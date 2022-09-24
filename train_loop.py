@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import Adam
+from torch.optim.lr_scheduler import ExponentialLR
 import torch.nn as nn
 
 from scan_dataloader import CTPET_Dataset
@@ -27,14 +28,15 @@ if __name__ == "__main__":
     training_loader = DataLoader(train_dataset, **train_parameters)
 
     # Init model
-    encoder_size = [16, 8, 8, 16]
-    decoder_size = [8, 8, 1]
+    encoder_size = [32, 16, 16, 32]
+    decoder_size = [16, 16, 1]
     model = AE_Registrator(encoder_size, decoder_size)
     model.train()
     lr = 1e-3
     opt = Adam(model.parameters(), lr=lr, weight_decay=2e-5)
-    num_of_epochs = 25
+    num_of_epochs = 30
     digits = floor(np.log10(num_of_epochs)) + 1
+    scheduler = ExponentialLR(opt, gamma=0.9)
 
     criterion = nn.MSELoss()
 
@@ -48,15 +50,6 @@ if __name__ == "__main__":
 
             X = batch["stacked"]
             registred_batch = model(X).squeeze()
-
-            # ct_loss = similarity_loss(batch["CT"], registred_batch)
-            # pet_loss = similarity_loss(batch["PET"], registred_batch)
-
-            # ct_loss = torch.sqrt(criterion(batch["CT"], registred_batch))
-            # pet_loss = torch.sqrt(criterion(batch["PET"], registred_batch))
-
-            # ct_loss = torch.sqrt(torch.mean(torch.square(batch["PET"] - registred_batch)))
-            # ct_loss = weighted_mean(batch["CT"], registred_batch)
 
             ct_loss = indexed_rmse(batch["CT"], registred_batch, criterion, 100)
             pet_loss = indexed_rmse(batch["PET"], registred_batch, criterion, 100)
@@ -73,7 +66,11 @@ if __name__ == "__main__":
         epoch_loss /= len(training_loader)
         loss_arr.append(epoch_loss)
         torch.save(model.state_dict(), f"{models_folder}/{epoch:0{digits}}.pt")
-        print(epoch_loss)
+        print(f"\t Loss: {epoch_loss:.0f}")
+
+        # Lower lr on each epoch after 10th
+        if epoch > 10:
+            scheduler.step()
 
     plt.plot(loss_arr)
     plt.show()

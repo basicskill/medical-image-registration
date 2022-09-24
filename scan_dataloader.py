@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 from scipy.ndimage import zoom
+from scipy.ndimage import median_filter
 
 
 class CTPET_Dataset(Dataset):
@@ -40,13 +41,18 @@ class CTPET_Dataset(Dataset):
         
         # Load and normalize PET image
         pet_img = zoom(np.load(self.pet_paths[index]), 4, order=0)
-        pet_img = torch.from_numpy(pet_img).to(torch.float32)
         # pet_img[pet_img < 0] = 0
-        pet_img -= torch.min(pet_img)
-        pet_img /= torch.max(pet_img)
+        pet_img -= np.min(pet_img)
+        pet_img /= np.max(pet_img)
 
         ct_img *= 512
         pet_img *= 512
+
+        pet_img[pet_img < 100] = 0
+        pet_img = median_filter(pet_img, 20)
+        pet_img = torch.from_numpy(pet_img).to(torch.float32)
+
+        # Filter out PET image
         
         # Stack images for input of autoencoder
         stacked = torch.stack([ct_img, pet_img])
