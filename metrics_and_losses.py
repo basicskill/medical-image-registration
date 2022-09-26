@@ -1,5 +1,5 @@
 import torch
-
+import numpy as np
 
 def similarity_loss(original_img: torch.Tensor, new_img: torch.Tensor):
 
@@ -36,3 +36,49 @@ def indexed_loss(original_img: torch.Tensor, new_img: torch.Tensor, criterion, t
 
 def weighted_mean(orig, new):
 	return torch.mean(torch.square(50 * (orig - new)))
+
+
+def batch_metrics(batch_fused: torch.Tensor) -> dict:
+	# Mean
+	mean = torch.mean(batch_fused).item()
+
+	# STD
+	std = torch.std(batch_fused, dim=[1, 2])
+	std = torch.mean(std).item()
+
+	# Average gradient
+	Gx = batch_fused[:, :, 0:-1] - batch_fused[:, :, 1:]
+	Gy = batch_fused[:, 0:-1, :] - batch_fused[:, 1:, :]
+	Gx = Gx[:, :-1, :]
+	Gy = Gy[:, :, :-1]
+
+	ag = torch.mean(torch.sqrt((Gx**2 + Gy**2) / 2), dim=[1, 2])
+	ag = torch.mean(ag).item()
+
+	# Entropy
+	ent = batch_entropy(batch_fused)
+
+	return {
+		"Mean": mean,
+		"STD": std,
+		"Average Gradient": ag,
+		"Entropy": ent,
+	}
+
+
+def batch_entropy(img_batch):
+	ent = 0
+	for idx in range(img_batch.shape[0]):
+		cnt, _ = np.histogram(img_batch[0, :, :].flatten(), bins=50)
+		prob = (cnt + 1) / np.max(cnt)
+		ent += -np.sum(prob * np.log(prob))
+	
+	ent /= img_batch.shape[0]
+
+	return ent
+
+def batch_rmse(img1, img2):
+	rmse = torch.sqrt(torch.mean((img1 - img2)**2, dim=[1, 2]))
+	rmse = torch.mean(rmse)
+
+	return rmse

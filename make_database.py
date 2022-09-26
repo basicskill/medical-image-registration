@@ -106,4 +106,4 @@ def create_ct_pet_database(src: str, dest: str):
     print("Finished!")
     
 if __name__ == "__main__":
-    create_ct_pet_database("database_tryout", "dest_tryout")
+    create_ct_pet_database("Soft-tissue-Sarcoma", "clinical_database")

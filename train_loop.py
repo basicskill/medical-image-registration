@@ -2,6 +2,7 @@ from math import floor
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import Adam
@@ -10,7 +11,7 @@ import torch.nn as nn
 
 from scan_dataloader import CTPET_Dataset, get_file_paths
 from autoencoder_registration_model import AE_Registrator
-from metrics_and_losses import similarity_loss, indexed_loss, weighted_mean
+from metrics_and_losses import similarity_loss, indexed_loss, batch_rmse, batch_metrics
 
 if torch.cuda.is_available():
     device = "cuda:0"
@@ -35,8 +36,6 @@ if __name__ == "__main__":
     training_loader = DataLoader(train_dataset, **train_parameters)
 
     # Init model
-    # encoder_size = [64, 32, 32, 64]
-    # decoder_size = [32, 32, 1]
     encoder_size = [32, 32, 16, 64]
     decoder_size = [32, 32, 1]
     model = AE_Registrator(encoder_size, decoder_size)
@@ -54,10 +53,28 @@ if __name__ == "__main__":
     # model.load_state_dict(torch.load("./tmp_models/11.pt"))
     model.to(device)
 
+    # Metrics array
+    metrics_arr = {
+		"Mean": [],
+		"STD": [],
+		"Average Gradient": [],
+		"Entropy": [],
+		"RMSE": [] 
+	}
+
     loss_arr = []
     for epoch in range(num_of_epochs):
         print(f"Training {epoch+1}/{num_of_epochs} epoch")
         epoch_loss = 0
+
+        metrics_epoch = {
+            "Mean": 0,
+            "STD": 0,
+            "Average Gradient": 0,
+            "Entropy": 0,
+            "RMSE": 0
+        }
+
 
         for batch in training_loader:
             opt.zero_grad()
@@ -71,31 +88,35 @@ if __name__ == "__main__":
             ct_loss = criterion(batch["CT"], registred_batch)
             pet_loss = criterion(batch["PET"], registred_batch)
 
-
-            if epoch > 20:
-                a = 1
-                b = 1
-            else:
-                a = 1
-                b = 1
-
-            loss = a * ct_loss + b * pet_loss
+            loss = ct_loss + pet_loss
             loss.backward()
             opt.step()
             epoch_loss += loss.item()
 
-            # plt.imshow(registred_batch.detach())
-            # plt.colorbar()
-            # plt.show()
+            # Metrics
+            bmets = batch_metrics(registred_batch.detach())
+
+            for key in bmets:
+                metrics_epoch[key] += bmets[key]
+            
+            avg_rmse = (batch_rmse(registred_batch, batch["CT"]) + batch_rmse(registred_batch, batch["PET"])) / 2
+            metrics_epoch["RMSE"] += avg_rmse.item()
 
         epoch_loss /= len(training_loader)
         loss_arr.append(epoch_loss)
         torch.save(model.state_dict(), f"{models_folder}/{epoch:0{digits}}.pt")
         print(f"\t Loss: {epoch_loss:.0f}")
 
+        for key in metrics_epoch:
+            metrics_arr[key].append(metrics_epoch[key])
+
         # Lower lr on each epoch after 10th
         if epoch > 10:
             scheduler.step()
 
-    plt.plot(loss_arr)
-    plt.show()
+    metrics_arr["Loss"] = loss_arr
+
+    print(metrics_arr)
+
+    with open('run_metrics.pkl', 'wb') as f:
+        pickle.dump(metrics_arr, f)
