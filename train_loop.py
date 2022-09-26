@@ -8,9 +8,15 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ExponentialLR
 import torch.nn as nn
 
-from scan_dataloader import CTPET_Dataset
+from scan_dataloader import CTPET_Dataset, get_file_paths
 from autoencoder_registration_model import AE_Registrator
-from metrics_and_losses import similarity_loss, indexed_rmse, weighted_mean
+from metrics_and_losses import similarity_loss, indexed_loss, weighted_mean
+
+if torch.cuda.is_available():
+    device = "cuda:0"
+else:
+    device = "cpu"
+
 
 if __name__ == "__main__":
     models_folder = "tmp_models"
@@ -18,7 +24,8 @@ if __name__ == "__main__":
     for f in os.listdir(models_folder):
         os.remove(os.path.join(models_folder, f))
 
-    train_dataset = CTPET_Dataset("dest_tryout")
+    ct_pths, pet_pths = get_file_paths("dest_tryout")
+    train_dataset = CTPET_Dataset(ct_pths, pet_pths)
 
     train_parameters = {
         "batch_size": 8,
@@ -28,8 +35,10 @@ if __name__ == "__main__":
     training_loader = DataLoader(train_dataset, **train_parameters)
 
     # Init model
-    encoder_size = [32, 16, 16, 32]
-    decoder_size = [16, 16, 1]
+    # encoder_size = [64, 32, 32, 64]
+    # decoder_size = [32, 32, 1]
+    encoder_size = [32, 32, 16, 64]
+    decoder_size = [32, 32, 1]
     model = AE_Registrator(encoder_size, decoder_size)
     model.train()
     lr = 1e-3
@@ -38,7 +47,12 @@ if __name__ == "__main__":
     digits = floor(np.log10(num_of_epochs)) + 1
     scheduler = ExponentialLR(opt, gamma=0.9)
 
-    criterion = nn.MSELoss()
+    # criterion = nn.MSELoss()
+    criterion = similarity_loss
+
+    # Use cuda if available
+    # model.load_state_dict(torch.load("./tmp_models/11.pt"))
+    model.to(device)
 
     loss_arr = []
     for epoch in range(num_of_epochs):
@@ -51,10 +65,21 @@ if __name__ == "__main__":
             X = batch["stacked"]
             registred_batch = model(X).squeeze()
 
-            ct_loss = indexed_rmse(batch["CT"], registred_batch, criterion, 100)
-            pet_loss = indexed_rmse(batch["PET"], registred_batch, criterion, 100)
+            # ct_loss = indexed_loss(batch["CT"], registred_batch, criterion, 100)
+            # pet_loss = indexed_loss(batch["PET"], registred_batch, criterion, 100)
 
-            loss = ct_loss + pet_loss
+            ct_loss = criterion(batch["CT"], registred_batch)
+            pet_loss = criterion(batch["PET"], registred_batch)
+
+
+            if epoch > 20:
+                a = 1
+                b = 1
+            else:
+                a = 1
+                b = 1
+
+            loss = a * ct_loss + b * pet_loss
             loss.backward()
             opt.step()
             epoch_loss += loss.item()

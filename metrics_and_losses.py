@@ -25,13 +25,11 @@ def similarity_loss(original_img: torch.Tensor, new_img: torch.Tensor):
 			((2 * covar + C2) / (var_orig + var_new + C2))
 	ssim = torch.mean(ssim)
 
-	return 1 - ssim
+	return -ssim
 
-def indexed_rmse(original_img: torch.Tensor, new_img: torch.Tensor, criterion, thr: float):
+def indexed_loss(original_img: torch.Tensor, new_img: torch.Tensor, criterion, thr: float):
 
 	indexes = original_img > thr
-
-	# rmse = torch.sqrt(torch.mean(torch.square(original_img[indexes] - new_img[indexes])))
 
 	return criterion(new_img[indexes], original_img[indexes])
 
